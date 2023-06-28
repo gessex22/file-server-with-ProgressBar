@@ -1,0 +1,111 @@
+<!-- <!DOCTYPE html>
+<html>
+<head>
+  <title>Subir Archivos</title>
+</head>
+<body>
+  <h1>Subir Archivo</h1>
+  <form action="/upload" method="post" multiple='multiple' enctype="multipart/form-data">
+    <input type="file" name="file" multiple />
+    <input type="submit" value="Subir" />
+  </form>
+</body>
+</html> -->
+<!-- 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Socket.IO Client</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.1/socket.io.js"></script>
+</head>
+<body>
+  <h1>Socket.IO Client Example</h1>
+
+
+  
+    <h1>Subir Archivo</h1>
+    <form action="/upload" method="post" multiple='multiple' enctype="multipart/form-data">
+      <input type="file" name="file" multiple />
+      <input type="submit" value="Subir" />
+    </form>
+  
+  <script>
+    const socket = io('127.0.0.1:3000'); // Reemplaza 'http://localhost:3000' con la URL de tu servidor
+
+    socket.on('connect', () => {
+      console.log('Conectado al servidor');
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Desconectado del servidor');
+    });
+
+    // Resto de la configuración y eventos de Socket.IO aquí...
+
+  </script>
+</body>
+</html> -->
+
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Barra de progreso de carga</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.2/socket.io.js"></script>
+</head>
+<body>
+  <h1>Barra de progreso de carga</h1>
+  
+  <form id="uploadForm" enctype="multipart/form-data">
+    <input type="file" name="files" multiple>
+    <button type="submit">Cargar archivos</button>
+  </form>
+  
+  <div id="progressBar" style="width: 300px; height: 20px; background-color: #f0f0f0;">
+    <div id="progress" style="width: 0%; height: 100%; background-color: #42b983;"></div>
+  </div>
+
+  <script>
+    const socket = io(); // Conexión Socket.IO al servidor
+
+    // Escuchar eventos de progreso de carga desde el servidor
+    socket.on('progressUpdate', (progress) => {
+      const progressBar = document.getElementById('progress');
+      progressBar.style.width = `${progress}%`; // Actualizar el ancho de la barra de progreso
+    });
+
+    socket.on('chat', (data) => {
+     alert('Se han cargado con exito todos los archivos a las ' + data) // Actualizar el ancho de la barra de progreso
+    });
+
+    socket.emit('serverEvent','mamgbo')
+    // Manejar envío de formulario
+    const form = document.getElementById('uploadForm');
+    form.addEventListener('submit', (event) => {
+      event.preventDefault(); // Prevenir el envío del formulario
+      console.log('Archivos enviados a ' +new Date())
+      document.getElementById('progress').style.width = `0%`; // Actualizar el ancho de la barra de progreso
+
+      const formData = new FormData(form);
+
+      // Realizar una solicitud POST utilizando Fetch API
+      fetch('/upload', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json'
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log(data.message);
+      })
+      .catch(error => {
+        console.error('Error:', error);
+      });
+    });
+  </script>
+</body>
+</html>

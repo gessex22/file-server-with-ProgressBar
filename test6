@@ -1,0 +1,109 @@
+const fs = require("fs");
+const express = require("express");
+const multer = require("multer");
+const path = require("path");
+const http = require("http");
+const socketIO = require("socket.io");
+
+const app = express();
+const server = http.createServer(app);
+const io = socketIO(server);
+
+const storage = multer.diskStorage({
+  destination: "uploads/",
+  filename: function (req, file, cb) {
+    // const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    // const fileExtension = path.extname(file.originalname);
+    const fileName = file.originalname;
+    cb(null, fileName);
+  },
+});
+
+const upload = multer({ storage });
+
+let totalSize = 0;
+
+app.use(express.static("public"));
+
+app.post("/upload", upload.any(), (req, res) => {
+  const uploadedFiles = req.files;
+  const numFiles = uploadedFiles.length;
+
+  let numFilesProcessed = 0;
+
+  uploadedFiles.forEach((file,id) => {
+    id++
+    console.log("Archivo " + id +"Peso: " + (file.size / 1000000) + " MB");
+
+    // Crea un flujo de lectura del archivo subido
+    const readStream = fs.createReadStream(file.path, {highWaterMark: 1600000});
+    const fileSize = file.size;
+
+    // Crea una función para actualizar el progreso de carga
+    const updateProgress = (progress) => {
+      console.log(`data: ${progress}%\n\n`);
+      io.emit("progressUpdate", progress);
+      
+    };
+
+    // Lee el archivo y envía actualizaciones periódicas del progreso
+    const interval = setInterval(() => {
+      const bytesRead = readStream.bytesRead;
+      console.log(bytesRead + ' ' + fileSize)
+      const progress = Math.floor((bytesRead / fileSize) * 100);
+      updateProgress(progress);
+    }, 100); // Envía actualizaciones cada segundo (ajusta el intervalo según tus necesidades)
+
+    // Envía la respuesta inicial con el encabezado para Event Stream
+    res.writeHead(100, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      'Connection': "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+
+    // Transfiere los datos del archivo al cliente
+    readStream.pipe(res);
+
+    // Cuando se completa la carga del archivo, finaliza la respuesta y limpia el intervalo
+    readStream.on("end", () => {
+      numFilesProcessed++;
+      console.log('Archivo cargado a las '+ new Date())
+      updateProgress('100')
+      if(numFilesProcessed === numFiles){
+        res.end();
+      }
+      
+      clearInterval(interval);
+
+      
+      if (numFilesProcessed === numFiles) {
+        console.log('¡Todos los archivos se han procesado correctamente!');
+        // Aquí puedes realizar acciones adicionales una vez que todos los archivos se han procesado
+      }
+    });
+
+    totalSize += fileSize;
+  });
+
+  console.log("Tamaño total de archivos: " + (totalSize / 1000000) + " MB");
+});
+
+
+
+
+io.on("connection", (socket) => {
+  console.log("Cliente conectado");
+
+  socket.on("disconnect", () => {
+    console.log("Cliente desconectado");
+  });
+
+  socket.on("serverEvent", (data) => {
+    console.log("Evento del servidor recibido:", data);
+  });
+});
+
+server.listen(3000, () => {
+  console.log("Servidor en ejecución en el puerto 3000");
+});
