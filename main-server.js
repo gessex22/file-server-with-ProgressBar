@@ -1,14 +1,10 @@
-const fs = require("fs");
 const express = require("express");
 const multer = require("multer");
+const fs = require("fs");
 const path = require("path");
 const http = require("http");
 const socketIO = require("socket.io");
-
-const app = express();
-const server = http.createServer(app);
-const io = socketIO(server);
-
+const { log } = require("console");
 const storage = multer.diskStorage({
   destination: "uploads/",
   filename: function (req, file, cb) {
@@ -18,72 +14,51 @@ const storage = multer.diskStorage({
     cb(null, fileName);
   },
 });
-
 const upload = multer({ storage });
-
+const app = express();
+const server = http.createServer(app);
+const io = socketIO(server);
 app.use(express.static("public"));
 
-app.post("/upload", upload.any(), (req, res) => {
-  let totalSize = 0;
+app.post("/upload", upload.single("files"), (req, res) => {
+  const uploadedFile = req.file;
+  const filePath = uploadedFile.path;
+
+  // Obtener el tamaño del archivo
+  const { size } = fs.statSync(filePath);
+
+  // Crear un flujo de lectura para el archivo
+  const readStream = fs.createReadStream(filePath);
+
   let uploadedSize = 0;
-  let procesoFiles = 1;
-  const uploadedFiles = req.files;
-  const numFiles = uploadedFiles.length;
 
-  res.writeHead(100, {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  });
+  // Manejar el evento 'data' para obtener el progreso de subida
 
-  const updateProgress = (progress) => {
-    console.log(`data: ${progress}%\n\n`);
-    io.emit("progressUpdate", progress);
-  };
-
-  // Calcular el tamaño total de los archivos
-  uploadedFiles.forEach((file) => {
-    totalSize += file.size;
-  });
-
-  // Iterar sobre los archivos subidos
-  uploadedFiles.forEach((file, index) => {
-    updateProgress(0);
-    const readStream = fs.createReadStream(file.path);
-
-    // Rastrear el progreso de subida
+  //const ass = setInterval(()=>{
     readStream.on("data", (chunk) => {
       uploadedSize += chunk.length;
-
+  
       // Calcular el progreso actual en porcentaje
-      const progress = Math.floor((uploadedSize / totalSize) * 100);
+      let progress = Math.floor((uploadedSize / size) * 100);
+      console.log(progress)
+      console.log(chunk)
+      // Emitir el progreso a través de Socket.IO
       io.emit("progressUpdate", progress);
-      console.log(progress);
-
-      // Aquí puedes enviar el progreso a través de Socket.IO o cualquier otro método
     });
 
-    // Finalizar el proceso de subida cuando se completa la lectura del archivo
-    readStream.on("end", () => {
-      updateProgress(100);
-      console.log(
-        `File :  ${index++}         Nombre : ${
-          file.originalname
-        }        Status : Completado `
-      );
-        console.log(procesoFiles)
-        console.log(numFiles)
-      if (procesoFiles == numFiles) {
-        res.end();
-        uploadedSize = 0;
-        console.log("Todo se cargo a las " + new Date());
-        io.emit("chat", new Date());
-      }
-      // Restablecer el tamaño de subida actual para el próximo archivo
-     
-      procesoFiles++;
-    });
+  //},100)
+  
+
+  // Manejar el evento 'end' para finalizar la subida
+  readStream.on("end", () => {
+    // Eliminar el archivo temporal después de la subida
+
+    // Emitir evento de finalización a través de Socket.IO
+    io.emit("uploadComplete");
+    clearInterval(ass)
+
+    // Enviar respuesta al cliente
+    res.status(200).json({ message: "Archivo subido exitosamente" });
   });
 });
 
@@ -93,10 +68,13 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("Cliente desconectado");
   });
+});
 
-  socket.on("serverEvent", (data) => {
-    console.log("Evento del servidor recibido:", data);
-  });
+io.on('getProgress', () => {
+  // Aquí puedes obtener el progreso actual de la carga y enviarlo al cliente
+  // Por ejemplo, puedes obtener el progreso de una variable global o desde una base de datos
+  const progress = 50; 
+  socket.emit('progressUpdate', progress);
 });
 
 server.listen(3000, () => {
