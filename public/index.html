@@ -30,7 +30,7 @@
       ></div>
 
       <div class="d-grid gap-2 pt-2">
-        <button class="btn btn-primary" type="submit">Cargar archivos</button>
+        <button class="btn btn-primary" id="submitButton" type="submit">Cargar archivos</button>
       </div>
 
       
@@ -55,12 +55,18 @@
         alert("Se han cargado con exito todos los archivos a las " + data); // Actualizar el ancho de la barra de progreso
       });
 
+      socket.on('uploadComplete',()=>{
+        document.getElementById("submitButton").disabled = false
+      })
+
       socket.emit("serverEvent", "mamgbo");
       // Manejar envío de formulario
       const form = document.getElementById("uploadForm");
       form.addEventListener("submit", (event) => {
         event.preventDefault(); // Prevenir el envío del formulario
+        document.getElementById("submitButton").disabled = true
         console.log("Archivos enviados a " + new Date());
+        
         document.getElementById("progress").style.width = `0%`; // Actualizar el ancho de la barra de progreso
 
         const formData = new FormData(form);
