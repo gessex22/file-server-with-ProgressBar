@@ -1,0 +1,19 @@
+.marginform{
+
+    margin-top: 600px; 
+    padding-left: 100px;
+    padding-right: 100px;
+ }
+
+ .uploadform{
+
+
+ }
+
+@media screen and (min-width: 430pxS) {
+    
+    .marginform{
+
+       margin-top: 80px; 
+    }
+}

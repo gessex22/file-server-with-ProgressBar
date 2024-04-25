@@ -12,7 +12,7 @@
 
       <h1>Sube tus archivos</h1>
 
-    <form id="uploadForm" enctype="multipart/form-data">
+    <form id="uploadForm flex" enctype="multipart/form-data">
 
       <div class="mb-3">
         <label for="formFile" class="form-label">Escoja los archivos a subir</label>
@@ -30,7 +30,7 @@
       ></div>
 
       <div class="d-grid gap-2 pt-2">
-        <button class="btn btn-primary" type="submit">Cargar archivos</button>
+        <button name="files"  class="btn btn-primary" type="submit">Cargar archivos</button>
       </div>
 
       
