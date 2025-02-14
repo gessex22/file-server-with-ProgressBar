@@ -1,19 +1,26 @@
-.marginform{
 
-    margin-top: 600px; 
-    padding-left: 100px;
-    padding-right: 100px;
- }
-
- .uploadform{
-
-
- }
-
-@media screen and (min-width: 430pxS) {
-    
-    .marginform{
-
-       margin-top: 80px; 
-    }
+@media screen and (max-width: 2400px) {
+  .marginform {
+  margin-top: 20vh;
+  margin-left: 30vw;
+  margin-right: 30vw;
+  width: 40vw;
 }
+
+}
+
+
+
+
+
+@media screen and (max-width: 520px) {
+  .marginform {
+    margin-top: 20vh;
+    margin-left: 5vw;
+    margin-right: 5vw;
+    width: 90vw;
+  }
+}
+
+
+
