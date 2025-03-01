@@ -1,3 +1,24 @@
+body{
+background-color:  white;
+
+}
+
+
+.up{
+
+ background-color:ghostwhite ;
+  border: 2px solid #12b6df;
+border-radius: 10px;
+}
+
+.down{
+  background-color: crimson;
+  border:  2px solid crimson;
+  border-radius: 10px;
+}
+
+
+
 
 @media screen and (max-width: 2400px) {
   .marginform {
@@ -7,6 +28,43 @@
   width: 40vw;
 }
 
+
+.navSection{
+
+  height: 80vh;
+  width: 60vw;
+  margin-top: 15vh;
+  margin-left: 20vw;
+  margin-right: 20vw;
+
+  background-color: white;
+  border-radius: 10px;
+
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+}
+
+.title{
+padding-top: 8vh;
+margin-bottom: 25vh;
+
+
+}
+.filesArea{
+
+  margin-bottom: 10vh;
+}
+
+.btnFile{
+
+  width: 20vw;
+  height: 30vh;
+}
+
+
+.btnFile  i{
+
+font-size: 10rem;
+}
 }
 
 

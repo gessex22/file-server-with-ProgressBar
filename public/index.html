@@ -1,104 +1,56 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
   <head>
-    <title>Barra de progreso de carga</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.2/socket.io.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-    <link href="./css/styles.css" rel="stylesheet">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
+      crossorigin="anonymous"
+    />
+    <link href="./css/styles.css" rel="stylesheet" />
 
+    <title>Media Server</title>
   </head>
+
+
+
+
+
   <body>
-
-    <section class="marginform">
-
-      <h1>Sube tus archivos</h1>
-
-    <form id="uploadForm" enctype="multipart/form-data">
-
-      <div class="mb-3">
-        <!-- <label for="formFile" class="form-label">Escoja los archivos a subir</label> -->
-        <input class="form-control" type="file" name='files' id="formFile" multiple />
-      </div>
-
-      <div class="mb-3">
-        <label for="nameFile" class="form-label">Nombre para el archivo </label>
-        <input class="form-control" type="text" name='files' id="nameFile" />
-      </div>
-
-      
-      <div
-      id="progressBar"
-      style=" height: 20px; background-color: #f0f0f0"
-    >
-      <div
-        id="progress"
-        style="width: 0%; height: 100%; background-color: #42b983"
-      ></div>
-
-      <div class="d-grid gap-2 pt-2">
-        <button class="btn btn-primary" id="submitButton" type="submit">Cargar archivos</button>
-      </div>
-
-      
-      
-    </form>
-
-  
-    </div>
-    </section>
-    
-
-    <script>
-      const socket = io(); // Conexión Socket.IO al servidor
-
-      // Escuchar eventos de progreso de carga desde el servidor
-      socket.on("progressUpdate", (progress) => {
-        const progressBar = document.getElementById("progress");
-        progressBar.style.width = `${progress}%`; // Actualizar el ancho de la barra de progreso
-      });
-
-      socket.on("chat", (data) => {
-        alert("Se han cargado con exito todos los archivos a las " + data); // Actualizar el ancho de la barra de progreso
-      });
-
-      socket.on('uploadComplete',()=>{
-        document.getElementById("submitButton").disabled = false
-      })
-
-      socket.emit("serverEvent", "mamgbo");
-      // Manejar envío de formulario
-      const form = document.getElementById("uploadForm");
-      form.addEventListener("submit", (event) => {
-        event.preventDefault(); // Prevenir el envío del formulario
-        document.getElementById("submitButton").disabled = true
-        console.log("Archivos enviados a " + new Date());
+    <div class="content">
+      <div class="navSection">
+        <div class="title">
+          <h3 class="text-center">Media Server GC22</h3>
+        </div>
+        <div class="filesArea d-flex justify-content-around">
+          <div id="btnup" class="uploadBtn">
         
-        document.getElementById("progress").style.width = `0%`; // Actualizar el ancho de la barra de progreso
+            <button class="btnFile up">
+              <i class="fa-solid fa-cloud-arrow-up"  style="color : #5688ae ;"></i>
+            </button>
+          </div>
 
-        const formData = new FormData(form);
+          <div class="downloadBtn">
+            <button class="btnFile down"> <i class="fa-solid fa-download" style="color: #e9dddd;"></i> </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-        // Realizar una solicitud POST utilizando Fetch API
-        fetch("/upload", {
-          method: "POST",
-          body: formData,
-          headers: {
-            Accept: "application/json",
-          },
-        })
-          .then((response) => response.json())
-          .then((data) => {
-            console.log(data.message);
-          })
-          .catch((error) => {
-            console.error("Error:", error);
-          });
-      });
+<script>
+const btnu = document.querySelector('#btnup')
+btnu.addEventListener('click', ()=>{ window.location.replace('uploads.html')})
 
-      setInterval(() => {
-        // Emitir un evento al servidor para solicitar el progreso actual
-        socket.emit("getProgress");
-      }, 1000);
-    </script>
+</script>
+
+
+
   </body>
 </html>
