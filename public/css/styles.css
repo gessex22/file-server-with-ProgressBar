@@ -18,6 +18,38 @@ border-radius: 10px;
 }
 
 
+ /* Estilos personalizados para el acordeón */
+      .custom-collapse {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        margin-top: 10px;
+        padding: 10px;
+      }
+
+      /* Estilos para el botón del acordeón */
+      .accordion-button {
+        background-color: white;
+        color: rgb(78, 81, 97);
+        border-bottom: 1px solid #5e7e86;
+        padding: 10px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      /* .accordion-button:hover { */
+         /* background-color: #a2bee9; */ */
+      /* } */
+
+      .accordion-button::after {
+        content: "▼"; /* Símbolo de flecha hacia abajo */
+        font-size: 14px;
+        transition: transform 0.3s ease;
+      }
+
+      .accordion-button[aria-expanded="true"]::after {
+        transform: rotate(180deg); /* Rotar la flecha cuando está expandido */
+      }
 
 
 @media screen and (max-width: 2400px) {
