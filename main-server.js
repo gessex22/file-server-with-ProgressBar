@@ -6,30 +6,38 @@ const http = require("http");
 const socketIO = require("socket.io");
 require("dotenv").config();
 
-const uploadPath = process.env.PATHUPLOAD || "uploads/";
+const gameplayPath = process.env.PATHUPLOADone;
+const privatePath = process.env.PATHUPLOADtwo;
 
+const app = express();
+const server = http.createServer(app);
+
+app.use(express.static("./public")); // Servir archivos estáticos desde /public
 // Asegurar que la carpeta de subida existe
-if (!fs.existsSync(uploadPath)) {
-  fs.mkdirSync(uploadPath, { recursive: true });
-}
+// if (!fs.existsSync(uploadPath)) {
+//   fs.mkdirSync(uploadPath, { recursive: true });
+// }
 
 const storage = multer.diskStorage({
-  destination: uploadPath,
+  destination: function (req, file, cb) {
+    console.log(req.query);
+    if (req.query.category == "df" || req.query.category == "private") {
+      cb(null, privatePath);
+    }
+    if (req.query.category == "gameplay") {
+      cb(null, gameplayPath);
+    }
+  },
   filename: function (req, file, cb) {
     cb(null, file.originalname);
   },
 });
 const upload = multer({ storage });
 
-const app = express();
-const server = http.createServer(app);
-
-server.keepAliveTimeout = 21474836
-server.timeout = 21474832
-server.headersTimeout = 21474836
+server.keepAliveTimeout = 21474836;
+server.timeout = 21474832;
+server.headersTimeout = 21474836;
 const io = socketIO(server);
-
-app.use(express.static("./public")); // Servir archivos estáticos desde /public
 
 app.post("/upload", upload.single("file"), (req, res) => {
   if (!req.file) {
@@ -57,4 +65,3 @@ io.on("connection", (socket) => {
 server.listen(3000, () => {
   console.log("Servidor en ejecución en el puerto 3000");
 });
-

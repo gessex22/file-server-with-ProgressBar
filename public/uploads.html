@@ -3,34 +3,73 @@
   <head>
     <title>Barra de progreso de carga</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.2/socket.io.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-    <link href="./css/styles.css" rel="stylesheet">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
+      crossorigin="anonymous"
+    />
+    <link href="./css/styles.css" rel="stylesheet" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
   </head>
   <body>
     <section class="marginform">
       <h1>Sube tus archivos</h1>
 
       <div class="mb-3">
-        <input class="form-control" type="file" name="file" id="fileInput" multiple />
+        <input
+          class="form-control"
+          type="file"
+          name="file"
+          id="fileInput"
+          multiple
+        />
       </div>
 
       <div class="mb-3">
-        <label for="nameFile" class="form-label">Nombre para el archivo</label>
-        <input class="form-control" type="text" name="files" id="nameFile" />
+        <input
+          placeholder="Nombre para el archivo"
+          class="form-control"
+          type="text"
+          name="files"
+          id="nameFile"
+        />
+      </div>
+      <div class="mb-3">
+        <select   id="category" class="form-select" aria-label="Categoria">
+          <option value="df">Categoria</option>
+          <option value="gameplay">Gameplay</option>
+          <option value="private">Privado</option>
+        </select>
       </div>
 
       <div id="progressBar" style="height: 20px; background-color: #f0f0f0">
-        <div id="progress" style="width: 0%; height: 100%; background-color: #42b983"></div>
+        <div
+          id="progress"
+          style="width: 0%; height: 100%; background-color: #42b983"
+        ></div>
       </div>
 
       <div class="d-grid gap-2 pt-2">
-        <button onclick="uploadFiles()" class="btn btn-primary" id="submitButton">Cargar archivos</button>
+        <button
+          onclick="uploadFiles()"
+          class="btn btn-primary"
+          id="submitButton"
+        >
+          Cargar archivos
+        </button>
       </div>
 
       <!-- Collapse para las barras de progreso individuales -->
-     <div class="mt-3">
-        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#progressCollapse" aria-expanded="false" aria-controls="progressCollapse">
+      <div class="mt-3">
+        <button
+          class="accordion-button"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#progressCollapse"
+          aria-expanded="false"
+          aria-controls="progressCollapse"
+        >
           Ver progreso individual
         </button>
         <div class="collapse custom-collapse" id="progressCollapse">
@@ -40,18 +79,18 @@
     </section>
 
     <script>
-      const barProgresv1 = document.getElementById('progress');
+      const barProgresv1 = document.getElementById("progress");
       const socket = io();
-      const submitButton = document.getElementById('submitButton'); // Botón de envío
+      const submitButton = document.getElementById("submitButton"); // Botón de envío
 
       let totalSize = 0; // Tamaño total de todos los archivos
       let fileProgress = {}; // Objeto para rastrear el progreso de cada archivo
       let filesUploaded = 0; // Contador de archivos subidos
 
       function uploadFiles() {
-        const files = document.getElementById('fileInput').files;
-        const progressContainer = document.getElementById('progressContainer');
-        progressContainer.innerHTML = ''; // Limpiar las barras de progreso previas
+        const files = document.getElementById("fileInput").files;
+        const progressContainer = document.getElementById("progressContainer");
+        progressContainer.innerHTML = ""; // Limpiar las barras de progreso previas
 
         // Reiniciar contadores al iniciar una nueva carga
         totalSize = 0;
@@ -70,21 +109,21 @@
         // Subir cada archivo
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          const progressBar = document.createElement('div');
-          progressBar.className = 'mb-2';
+          const progressBar = document.createElement("div");
+          progressBar.className = "mb-2";
           progressBar.innerHTML = `
             <p><strong>${file.name}</strong></p>
             <progress max="100" value="0" style="width: 100%; height: 20px;"></progress>
           `;
           progressContainer.appendChild(progressBar);
 
-          uploadFile(file, progressBar.querySelector('progress'));
+          uploadFile(file, progressBar.querySelector("progress"));
         }
       }
 
       function uploadFile(file, progressBar) {
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/upload', true);
+        xhr.open("POST", "/upload?category=" + encodeURIComponent(document.getElementById('category').value));
 
         // Progreso del archivo
         xhr.upload.onprogress = (event) => {
@@ -111,23 +150,31 @@
             socket.emit("uploadComplete", { fileName: file.name });
 
             // Verificar si todos los archivos han sido subidos
-            if (filesUploaded === document.getElementById('fileInput').files.length) {
+            if (
+              filesUploaded ===
+              document.getElementById("fileInput").files.length
+            ) {
               // Desbloquear el botón de envío
               submitButton.disabled = false;
-              console.log('Todos los archivos han sido subidos. Botón desbloqueado.');
+              console.log(
+                "Todos los archivos han sido subidos. Botón desbloqueado."
+              );
             }
           }
         };
 
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append("file", file);
         xhr.send(formData);
       }
 
       // Actualización de la barra de progreso general
       function updateGlobalProgress() {
         // Calcular el tamaño total subido de todos los archivos
-        const totalUploaded = Object.values(fileProgress).reduce((acc, size) => acc + size, 0);
+        const totalUploaded = Object.values(fileProgress).reduce(
+          (acc, size) => acc + size,
+          0
+        );
 
         // Calcular el progreso global en porcentaje
         const percentGlobal = Math.floor((totalUploaded / totalSize) * 100);
@@ -135,7 +182,7 @@
 
         // Asegurarse de que el progreso no exceda el 100%
         if (percentGlobal > 100) {
-          barProgresv1.style.width = '100%';
+          barProgresv1.style.width = "100%";
         }
       }
 
@@ -145,6 +192,10 @@
     </script>
 
     <!-- Bootstrap JS (necesario para el collapse) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+      crossorigin="anonymous"
+    ></script>
   </body>
 </html>
