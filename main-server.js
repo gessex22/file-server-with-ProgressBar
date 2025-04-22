@@ -8,6 +8,7 @@ require("dotenv").config();
 
 const gameplayPath = process.env.PATHUPLOADone;
 const privatePath = process.env.PATHUPLOADtwo;
+const edicionPath = process.env.PATHUPLOADthree;
 
 const app = express();
 const server = http.createServer(app);
@@ -26,6 +27,9 @@ const storage = multer.diskStorage({
     }
     if (req.query.category == "gameplay") {
       cb(null, gameplayPath);
+    }
+    if (req.query.category == "edicion"){
+      cb(null, edicionPath)
     }
   },
   filename: function (req, file, cb) {
