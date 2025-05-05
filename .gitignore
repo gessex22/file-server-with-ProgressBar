@@ -2,4 +2,4 @@
 /uploads/ 
 /package-lock.json
 /public/js/script.jsgit git 
-/.env
+.env
