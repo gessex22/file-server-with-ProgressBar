@@ -27,7 +27,7 @@
     <div class="content">
       <div class="navSection">
         <div class="title">
-          <h3 class="text-center">Media Server GC22</h3>
+          <h3 class="text-center">Media Server<span id="serverBadge"> none</span> </h3>
         </div>
         <div class="filesArea d-md-flex justify-content-around">
           <div id="btnup" class="uploadBtn">
@@ -48,6 +48,21 @@
 const btnu = document.querySelector('#btnup')
 btnu.addEventListener('click', ()=>{ window.location.replace('uploads.html')})
 
+  async function getServerInfo() {
+        try {
+          const response = await fetch("/server-info");
+          const data = await response.json();
+
+          const badge = document.getElementById("serverBadge");
+         // badge.textContent = data.serverName;
+         badge.textContent = ` ${data.hostname} / ${data.environment}`;
+          badge.classList.add(data.environment);
+        } catch (error) {
+          console.error("Error obteniendo info del servidor:", error);
+        }
+      }
+
+      getServerInfo();
 </script>
 
 
