@@ -52,6 +52,84 @@ border-radius: 10px;
       }
 
 
+/* ===== ESTILOS DRAG & DROP ===== */
+.drop-zone {
+  border: 3px dashed #12b6df;
+  border-radius: 10px;
+  padding: 40px 20px;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  margin-bottom: 20px;
+  background-color: ghostwhite;
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drop-zone:hover {
+  border-color: #0d9cc9;
+  background-color: #f0f8ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(18, 182, 223, 0.2);
+}
+
+.drop-zone.dragover {
+  border-color: #0d6efd;
+  background-color: #e7f1ff;
+  transform: scale(1.02);
+  border-style: solid;
+  box-shadow: 0 6px 20px rgba(13, 110, 253, 0.3);
+}
+
+.drop-zone.has-files {
+  border-color: #198754;
+  background-color: #d1e7dd;
+  border-style: solid;
+}
+
+.drop-zone p {
+  margin: 0;
+  color: #4e5161;
+  font-size: 1.1rem;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.drop-zone small {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+/* Lista de archivos seleccionados */
+#fileListDisplay .alert {
+  background-color: #e7f1ff;
+  border: 1px solid #12b6df;
+  border-radius: 8px;
+  color: #4e5161;
+}
+
+#fileListDisplay ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+#fileListDisplay li {
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(18, 182, 223, 0.2);
+}
+
+#fileListDisplay li:last-child {
+  border-bottom: none;
+}
+
+#fileListDisplay li::before {
+  content: "📄 ";
+  margin-right: 8px;
+}
+
+
 @media screen and (max-width: 2400px) {
   .marginform {
   margin-top: 20vh;
@@ -147,5 +225,92 @@ font-size: 10rem;
   margin-top: 10px;
 }
 
+/* Ajustes móvil para drop zone */
+.drop-zone {
+  padding: 30px 15px;
+  min-height: 120px;
+  font-size: 0.95rem;
 }
 
+.drop-zone p {
+  font-size: 1rem;
+}
+
+}
+
+/* Badge del servidor */
+.server-badge {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s;
+}
+
+.server-badge::before {
+  content: "🖥️";
+  font-size: 1.2rem;
+}
+
+.server-loading {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Colores según entorno */
+.server-badge.production {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.server-badge.production::before {
+  content: "🔴";
+}
+
+.server-badge.development {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.server-badge.development::before {
+  content: "🔵";
+}
+
+.server-badge.staging {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.server-badge.staging::before {
+  content: "🟢";
+}
+
+.server-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+@media screen and (max-width: 520px) {
+  .server-badge {
+    top: 10px;
+    right: 10px;
+    padding: 8px 15px;
+    font-size: 0.8rem;
+  }
+  
+  .server-badge::before {
+    font-size: 1rem;
+  }
+}

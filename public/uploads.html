@@ -11,10 +11,50 @@
     />
     <link href="./css/styles.css" rel="stylesheet" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      .drop-zone {
+        border: 3px dashed #ccc;
+        border-radius: 10px;
+        padding: 40px;
+        text-align: center;
+        transition: all 0.3s;
+        cursor: pointer;
+        margin-bottom: 20px;
+        background-color: #f8f9fa;
+      }
+
+      .drop-zone.dragover {
+        border-color: #0d6efd;
+        background-color: #e7f1ff;
+        transform: scale(1.02);
+      }
+
+      .drop-zone p {
+        margin: 0;
+        color: #6c757d;
+        font-size: 1.1rem;
+      }
+
+      .drop-zone.has-files {
+        border-color: #198754;
+        background-color: #d1e7dd;
+      }
+    </style>
   </head>
   <body>
+    <div id="serverBadge" class="server-badge">
+      <span class="server-loading">Conectando...</span>
+    </div>
     <section class="marginform">
       <h1>Sube tus archivos</h1>
+
+      <!-- Zona de drop -->
+      <div class="drop-zone" id="dropZone">
+        <p>
+          📁 Arrastra tus archivos aquí<br />
+          <small>o haz clic para seleccionar</small>
+        </p>
+      </div>
 
       <div class="mb-3">
         <input
@@ -23,7 +63,9 @@
           name="file"
           id="fileInput"
           multiple
+          style="display: none"
         />
+        <div id="fileListDisplay" class="mt-2"></div>
       </div>
 
       <div class="mb-3">
@@ -36,11 +78,11 @@
         />
       </div>
       <div class="mb-3">
-        <select   id="category" class="form-select" aria-label="Categoria">
+        <select id="category" class="form-select" aria-label="Categoria">
           <option value="df">Categoria</option>
           <option value="gameplay">Gameplay</option>
           <option value="private">Privado</option>
-            <option value="private">Edicion</option>
+          <option value="edition">Edicion</option>
         </select>
       </div>
 
@@ -80,34 +122,162 @@
     </section>
 
     <script>
+      async function getServerInfo() {
+        try {
+          const response = await fetch("/server-info");
+          const data = await response.json();
+
+          const badge = document.getElementById("serverBadge");
+         // badge.textContent = data.serverName;
+         badge.textContent = ` ${data.hostname} / ${data.environment}`;
+          badge.classList.add(data.environment);
+        } catch (error) {
+          console.error("Error obteniendo info del servidor:", error);
+        }
+      }
+
+      getServerInfo();
+
       const barProgresv1 = document.getElementById("progress");
       const socket = io();
-      const submitButton = document.getElementById("submitButton"); // Botón de envío
+      const submitButton = document.getElementById("submitButton");
+      const dropZone = document.getElementById("dropZone");
+      const fileInput = document.getElementById("fileInput");
+      const fileListDisplay = document.getElementById("fileListDisplay");
 
-      let totalSize = 0; // Tamaño total de todos los archivos
-      let fileProgress = {}; // Objeto para rastrear el progreso de cada archivo
-      let filesUploaded = 0; // Contador de archivos subidos
+      let totalSize = 0;
+      let fileProgress = {};
+      let filesUploaded = 0;
+
+      // ===== DRAG & DROP FUNCTIONALITY =====
+
+      // Prevenir comportamiento por defecto
+      ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+      });
+
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      // Resaltar zona cuando se arrastra
+      ["dragenter", "dragover"].forEach((eventName) => {
+        dropZone.addEventListener(
+          eventName,
+          () => {
+            dropZone.classList.add("dragover");
+          },
+          false
+        );
+      });
+
+      ["dragleave", "drop"].forEach((eventName) => {
+        dropZone.addEventListener(
+          eventName,
+          () => {
+            dropZone.classList.remove("dragover");
+          },
+          false
+        );
+      });
+
+      // Manejar el evento drop
+      dropZone.addEventListener("drop", handleDrop, false);
+
+      function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles(files);
+      }
+
+      // Click en la zona para abrir selector
+      dropZone.addEventListener("click", () => {
+        fileInput.click();
+      });
+
+      // Cuando se seleccionan archivos manualmente
+      fileInput.addEventListener("change", (e) => {
+        handleFiles(e.target.files);
+      });
+
+      // Procesar archivos seleccionados
+      function handleFiles(files) {
+        // Actualizar el input con los archivos
+        fileInput.files = files;
+
+        // Actualizar visualización
+        updateFileList(files);
+
+        // Cambiar apariencia de la zona
+        if (files.length > 0) {
+          dropZone.classList.add("has-files");
+          dropZone.querySelector("p").innerHTML = `
+            ✅ ${files.length} archivo(s) seleccionado(s)<br>
+            <small>Haz clic para cambiar la selección</small>
+          `;
+        }
+      }
+
+      // Mostrar lista de archivos seleccionados
+      function updateFileList(files) {
+        fileListDisplay.innerHTML = "";
+
+        if (files.length === 0) return;
+
+        const list = document.createElement("div");
+        list.className = "alert alert-info";
+        list.innerHTML =
+          '<strong>Archivos seleccionados:</strong><ul class="mb-0 mt-2">';
+
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const size = formatBytes(file.size);
+          list.innerHTML += `<li>${file.name} (${size})</li>`;
+        }
+
+        list.innerHTML += "</ul>";
+        fileListDisplay.appendChild(list);
+      }
+
+      // Formatear bytes
+      function formatBytes(bytes, decimals = 2) {
+        if (bytes === 0) return "0 Bytes";
+        const k = 1024;
+        const sizes = ["Bytes", "KB", "MB", "GB"];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return (
+          parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) +
+          " " +
+          sizes[i]
+        );
+      }
+
+      // ===== ORIGINAL UPLOAD FUNCTIONALITY =====
 
       function uploadFiles() {
         const files = document.getElementById("fileInput").files;
-        const progressContainer = document.getElementById("progressContainer");
-        progressContainer.innerHTML = ""; // Limpiar las barras de progreso previas
 
-        // Reiniciar contadores al iniciar una nueva carga
+        if (files.length === 0) {
+          alert("Por favor selecciona o arrastra archivos primero");
+          return;
+        }
+
+        const progressContainer = document.getElementById("progressContainer");
+        progressContainer.innerHTML = "";
+
         totalSize = 0;
         fileProgress = {};
         filesUploaded = 0;
 
-        // Bloquear el botón de envío
         submitButton.disabled = true;
 
-        // Calcular el tamaño total de todos los archivos
         for (let i = 0; i < files.length; i++) {
           totalSize += files[i].size;
-          fileProgress[files[i].name] = 0; // Inicializar el progreso de cada archivo en 0
+          fileProgress[files[i].name] = 0;
         }
 
-        // Subir cada archivo
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
           const progressBar = document.createElement("div");
@@ -124,39 +294,44 @@
 
       function uploadFile(file, progressBar) {
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/upload?category=" + encodeURIComponent(document.getElementById('category').value));
+        xhr.open(
+          "POST",
+          "/upload?category=" +
+            encodeURIComponent(document.getElementById("category").value)
+        );
 
-        // Progreso del archivo
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable) {
-            // Actualizar el progreso individual del archivo
             fileProgress[file.name] = event.loaded;
 
-            // Calcular el progreso individual en porcentaje
             const percentFile = Math.floor((event.loaded / file.size) * 100);
             progressBar.value = percentFile;
 
-            // Actualizar el progreso global
             updateGlobalProgress();
           }
         };
 
-        // Cuando el archivo termine de subir
         xhr.onload = () => {
           if (xhr.status === 200) {
             progressBar.value = 100;
-            filesUploaded++; // Incrementar el contador de archivos subidos
+            filesUploaded++;
 
-            // Emitir evento de finalización
             socket.emit("uploadComplete", { fileName: file.name });
 
-            // Verificar si todos los archivos han sido subidos
             if (
               filesUploaded ===
               document.getElementById("fileInput").files.length
             ) {
-              // Desbloquear el botón de envío
               submitButton.disabled = false;
+
+              // Resetear la zona de drop
+              dropZone.classList.remove("has-files");
+              dropZone.querySelector("p").innerHTML = `
+                📁 Arrastra tus archivos aquí<br>
+                <small>o haz clic para seleccionar</small>
+              `;
+              fileListDisplay.innerHTML = "";
+
               console.log(
                 "Todos los archivos han sido subidos. Botón desbloqueado."
               );
@@ -169,19 +344,15 @@
         xhr.send(formData);
       }
 
-      // Actualización de la barra de progreso general
       function updateGlobalProgress() {
-        // Calcular el tamaño total subido de todos los archivos
         const totalUploaded = Object.values(fileProgress).reduce(
           (acc, size) => acc + size,
           0
         );
 
-        // Calcular el progreso global en porcentaje
         const percentGlobal = Math.floor((totalUploaded / totalSize) * 100);
-        barProgresv1.style.width = `${percentGlobal}%`; // Actualizar la barra de progreso global
+        barProgresv1.style.width = `${percentGlobal}%`;
 
-        // Asegurarse de que el progreso no exceda el 100%
         if (percentGlobal > 100) {
           barProgresv1.style.width = "100%";
         }
@@ -192,7 +363,6 @@
       });
     </script>
 
-    <!-- Bootstrap JS (necesario para el collapse) -->
     <script
       src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
       integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"

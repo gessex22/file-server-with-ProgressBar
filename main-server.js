@@ -1,9 +1,11 @@
 const express = require("express");
-const multer = require("multer");
+const os = require("os")
 const fs = require("fs");
 const path = require("path");
 const http = require("http");
 const socketIO = require("socket.io");
+const busboy = require("busboy"); // streaming
+
 require("dotenv").config();
 
 const gameplayPath = process.env.PATHUPLOADone;
@@ -12,58 +14,70 @@ const edicionPath = process.env.PATHUPLOADthree;
 
 const app = express();
 const server = http.createServer(app);
+const io = socketIO(server);
 
-app.use(express.static("./public")); // Servir archivos estáticos desde /public
-// Asegurar que la carpeta de subida existe
-// if (!fs.existsSync(uploadPath)) {
-//   fs.mkdirSync(uploadPath, { recursive: true });
-// }
+// Archivos estáticos
+app.use(express.static("./public"));
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    console.log(req.query);
-    if (req.query.category == "df" || req.query.category == "private") {
-      cb(null, privatePath);
-    }
-    if (req.query.category == "gameplay") {
-      cb(null, gameplayPath);
-    }
-    if (req.query.category == "edicion"){
-      cb(null, edicionPath)
-    }
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.originalname);
-  },
-});
-const upload = multer({ storage });
-
+// Conexiones largas
 server.keepAliveTimeout = 21474836;
 server.timeout = 21474832;
 server.headersTimeout = 21474836;
-const io = socketIO(server);
 
-app.post("/upload", upload.single("file"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: "No se cargó ningún archivo" });
+
+app.get("/server-info", (req, res) => {
+  res.json({
+    serverName: process.env.SERVER_NAME || "Servidor Local",
+    environment: os.platform() || "development",
+    port: process.env.PORT || 3000,
+    hostname: require('os').hostname(),
+    version: process.env.APP_VERSION || "1.0.0"
+  });
+});
+
+app.post("/upload", (req, res) => {
+  const bb = busboy({ headers: req.headers });
+
+  let savePath = null;
+  const category = req.query.category;
+
+  if (category === "df" || category === "private") savePath = privatePath;
+  if (category === "gameplay") savePath = gameplayPath;
+  if (category === "edition" || category === "edicion") savePath = edicionPath;
+
+  if (!savePath) {
+    return res.status(400).json({ message: "Categoría inválida" });
   }
 
-  console.log(`Archivo recibido: ${req.file.originalname}`);
+  bb.on("file", (fieldname, file, info) => {
+    const { filename } = info;
+    console.log(`Subiendo archivo: ${filename}`);
 
-  res.status(200).json({
-    message: "Archivo subido exitosamente",
-    fileName: req.file.originalname,
+    const saveTo = path.join(savePath, filename);
+    const writeStream = fs.createWriteStream(saveTo);
+
+    file.pipe(writeStream);
+
+    file.on("end", () => {
+      console.log(`Archivo guardado: ${saveTo}`);
+      io.emit("uploadComplete", { fileName: filename });
+    });
+
+    file.on("error", (err) => {
+      console.error("Error en la subida:", err);
+    });
   });
 
-  io.emit("uploadComplete", { fileName: req.file.originalname });
+  bb.on("finish", () => {
+    res.status(200).json({ message: "Archivo subido exitosamente" });
+  });
+
+  req.pipe(bb);
 });
 
 io.on("connection", (socket) => {
   console.log("Cliente conectado");
-
-  socket.on("disconnect", () => {
-    console.log("Cliente desconectado");
-  });
+  socket.on("disconnect", () => console.log("Cliente desconectado"));
 });
 
 server.listen(3000, () => {
