@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
   <head>
-    <title>Barra de progreso de carga</title>
+    <title>Subida de archivos</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.2/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tus-js-client@3.1.0/dist/tus.min.js"></script>
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
       rel="stylesheet"
@@ -39,12 +40,51 @@
         border-color: #198754;
         background-color: #d1e7dd;
       }
+
+      .upload-controls {
+        display: flex;
+        gap: 5px;
+        margin-top: 10px;
+      }
+
+      .upload-controls button {
+        font-size: 0.8rem;
+        padding: 2px 8px;
+      }
+
+      .progress-container {
+        width: 100%;
+        height: 20px;
+        background-color: #f0f0f0;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      .progress-bar {
+        height: 100%;
+        background-color: #42b983;
+        transition: width 0.3s ease;
+        width: 0%;
+      }
+
+      .progress-bar.paused {
+        background-color: #ffc107;
+      }
+
+      .progress-bar.error {
+        background-color: #dc3545;
+      }
+
+      .progress-bar.completed {
+        background-color: #198754;
+      }
     </style>
   </head>
   <body>
     <div id="serverBadge" class="server-badge">
       <span class="server-loading">Conectando...</span>
     </div>
+
     <section class="marginform">
       <h1>Sube tus archivos</h1>
 
@@ -70,40 +110,35 @@
 
       <div class="mb-3">
         <input
-          placeholder="Nombre para el archivo"
+          placeholder="Nombre personalizado (opcional, solo para un archivo)"
           class="form-control"
           type="text"
           name="files"
           id="nameFile"
         />
       </div>
+
       <div class="mb-3">
         <select id="category" class="form-select" aria-label="Categoria">
-          <option value="df">Categoria</option>
+          <option value="">-- Selecciona categoría --</option>
           <option value="gameplay">Gameplay</option>
           <option value="private">Privado</option>
-          <option value="edition">Edicion</option>
+          <option value="edicion">Edición</option>
         </select>
       </div>
 
-      <div id="progressBar" style="height: 20px; background-color: #f0f0f0">
-        <div
-          id="progress"
-          style="width: 0%; height: 100%; background-color: #42b983"
-        ></div>
+      <!-- Barra de progreso global -->
+      <div id="progressBar" class="progress-container">
+        <div id="progress" class="progress-bar"></div>
       </div>
 
       <div class="d-grid gap-2 pt-2">
-        <button
-          onclick="uploadFiles()"
-          class="btn btn-primary"
-          id="submitButton"
-        >
+        <button onclick="uploadFiles()" class="btn btn-primary" id="submitButton">
           Cargar archivos
         </button>
       </div>
 
-      <!-- Collapse para las barras de progreso individuales -->
+      <!-- Collapse con barras individuales -->
       <div class="mt-3">
         <button
           class="accordion-button"
@@ -122,36 +157,35 @@
     </section>
 
     <script>
+      // ── Info del servidor ──────────────────────────────────────────────────
       async function getServerInfo() {
         try {
           const response = await fetch("/server-info");
-          const data = await response.json();
-
-          const badge = document.getElementById("serverBadge");
-         // badge.textContent = data.serverName;
-         badge.textContent = ` ${data.hostname} / ${data.environment}`;
+          const data     = await response.json();
+          const badge    = document.getElementById("serverBadge");
+          badge.textContent = `${data.hostname} / ${data.environment} / TUS`;
           badge.classList.add(data.environment);
         } catch (error) {
           console.error("Error obteniendo info del servidor:", error);
         }
       }
-
       getServerInfo();
 
-      const barProgresv1 = document.getElementById("progress");
-      const socket = io();
-      const submitButton = document.getElementById("submitButton");
-      const dropZone = document.getElementById("dropZone");
-      const fileInput = document.getElementById("fileInput");
+      // ── Referencias DOM ────────────────────────────────────────────────────
+      const barProgresv1  = document.getElementById("progress");
+      const socket        = io();
+      const submitButton  = document.getElementById("submitButton");
+      const dropZone      = document.getElementById("dropZone");
+      const fileInput     = document.getElementById("fileInput");
       const fileListDisplay = document.getElementById("fileListDisplay");
 
-      let totalSize = 0;
+      // ── Estado ─────────────────────────────────────────────────────────────
+      let totalSize    = 0;
       let fileProgress = {};
       let filesUploaded = 0;
+      let activeUploads = new Map();
 
-      // ===== DRAG & DROP FUNCTIONALITY =====
-
-      // Prevenir comportamiento por defecto
+      // ── Drag & Drop ────────────────────────────────────────────────────────
       ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
         dropZone.addEventListener(eventName, preventDefaults, false);
         document.body.addEventListener(eventName, preventDefaults, false);
@@ -162,55 +196,22 @@
         e.stopPropagation();
       }
 
-      // Resaltar zona cuando se arrastra
       ["dragenter", "dragover"].forEach((eventName) => {
-        dropZone.addEventListener(
-          eventName,
-          () => {
-            dropZone.classList.add("dragover");
-          },
-          false
-        );
+        dropZone.addEventListener(eventName, () => dropZone.classList.add("dragover"), false);
       });
 
       ["dragleave", "drop"].forEach((eventName) => {
-        dropZone.addEventListener(
-          eventName,
-          () => {
-            dropZone.classList.remove("dragover");
-          },
-          false
-        );
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove("dragover"), false);
       });
 
-      // Manejar el evento drop
-      dropZone.addEventListener("drop", handleDrop, false);
+      dropZone.addEventListener("drop", (e) => handleFiles(e.dataTransfer.files), false);
+      dropZone.addEventListener("click", () => fileInput.click());
+      fileInput.addEventListener("change", (e) => handleFiles(e.target.files));
 
-      function handleDrop(e) {
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        handleFiles(files);
-      }
-
-      // Click en la zona para abrir selector
-      dropZone.addEventListener("click", () => {
-        fileInput.click();
-      });
-
-      // Cuando se seleccionan archivos manualmente
-      fileInput.addEventListener("change", (e) => {
-        handleFiles(e.target.files);
-      });
-
-      // Procesar archivos seleccionados
       function handleFiles(files) {
-        // Actualizar el input con los archivos
         fileInput.files = files;
-
-        // Actualizar visualización
         updateFileList(files);
 
-        // Cambiar apariencia de la zona
         if (files.length > 0) {
           dropZone.classList.add("has-files");
           dropZone.querySelector("p").innerHTML = `
@@ -220,147 +221,298 @@
         }
       }
 
-      // Mostrar lista de archivos seleccionados
       function updateFileList(files) {
         fileListDisplay.innerHTML = "";
-
         if (files.length === 0) return;
 
         const list = document.createElement("div");
         list.className = "alert alert-info";
-        list.innerHTML =
-          '<strong>Archivos seleccionados:</strong><ul class="mb-0 mt-2">';
+        list.innerHTML = '<strong>Archivos seleccionados:</strong><ul class="mb-0 mt-2">';
 
         for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          const size = formatBytes(file.size);
-          list.innerHTML += `<li>${file.name} (${size})</li>`;
+          list.innerHTML += `<li>${files[i].name} (${formatBytes(files[i].size)})</li>`;
         }
 
         list.innerHTML += "</ul>";
         fileListDisplay.appendChild(list);
       }
 
-      // Formatear bytes
       function formatBytes(bytes, decimals = 2) {
         if (bytes === 0) return "0 Bytes";
-        const k = 1024;
+        const k     = 1024;
         const sizes = ["Bytes", "KB", "MB", "GB"];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return (
-          parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) +
-          " " +
-          sizes[i]
-        );
+        const i     = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + " " + sizes[i];
       }
 
-      // ===== ORIGINAL UPLOAD FUNCTIONALITY =====
-
+      // ── Upload principal ───────────────────────────────────────────────────
       function uploadFiles() {
-        const files = document.getElementById("fileInput").files;
+        const files = fileInput.files;
 
         if (files.length === 0) {
           alert("Por favor selecciona o arrastra archivos primero");
           return;
         }
 
+        const category = document.getElementById("category").value;
+        if (!category) {
+          alert("Por favor selecciona una categoría");
+          return;
+        }
+
+        // Advertir si hay nombre custom con múltiples archivos
+        const customName = document.getElementById("nameFile").value.trim();
+        if (customName && files.length > 1) {
+          const ok = confirm(
+            `Tienes ${files.length} archivos y un nombre personalizado.\n` +
+            `Los archivos se nombrarán: ${customName}_1, ${customName}_2, etc.\n\n¿Continuar?`
+          );
+          if (!ok) return;
+        }
+
+        // Resetear estado
         const progressContainer = document.getElementById("progressContainer");
         progressContainer.innerHTML = "";
-
-        totalSize = 0;
-        fileProgress = {};
+        totalSize     = 0;
+        fileProgress  = {};
         filesUploaded = 0;
+        activeUploads.clear();
 
-        submitButton.disabled = true;
+        submitButton.disabled   = true;
+        barProgresv1.style.width = "0%";
+        barProgresv1.className  = "progress-bar";
 
         for (let i = 0; i < files.length; i++) {
           totalSize += files[i].size;
-          fileProgress[files[i].name] = 0;
+          fileProgress[i] = 0; // FIX: usar índice en vez de nombre (nombres pueden repetirse)
         }
 
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          const progressBar = document.createElement("div");
-          progressBar.className = "mb-2";
-          progressBar.innerHTML = `
-            <p><strong>${file.name}</strong></p>
-            <progress max="100" value="0" style="width: 100%; height: 20px;"></progress>
-          `;
-          progressContainer.appendChild(progressBar);
 
-          uploadFile(file, progressBar.querySelector("progress"));
+          const progressBarDiv = document.createElement("div");
+          progressBarDiv.className = "mb-3";
+          progressBarDiv.id        = `upload-${i}`;
+          progressBarDiv.innerHTML = `
+            <div class="d-flex justify-content-between">
+              <p class="mb-1"><strong>${file.name}</strong></p>
+              <small class="text-muted" id="status-${i}">Preparando...</small>
+            </div>
+            <div class="progress-container">
+              <div id="individual-progress-${i}" class="progress-bar"></div>
+            </div>
+            <div class="upload-controls mt-1">
+              <button class="btn btn-sm btn-warning" onclick="pauseUpload(${i})"  id="pauseBtn-${i}">⏸ Pausar</button>
+              <button class="btn btn-sm btn-success" onclick="resumeUpload(${i})" id="resumeBtn-${i}" style="display:none;">▶ Reanudar</button>
+              <button class="btn btn-sm btn-danger"  onclick="cancelUpload(${i})" id="cancelBtn-${i}">✕ Cancelar</button>
+            </div>
+          `;
+          progressContainer.appendChild(progressBarDiv);
+
+          uploadFileWithTUS(file, i, category);
         }
       }
 
-      function uploadFile(file, progressBar) {
-        const xhr = new XMLHttpRequest();
-        xhr.open(
-          "POST",
-          "/upload?category=" +
-            encodeURIComponent(document.getElementById("category").value)
-        );
+      // ── TUS upload por archivo ─────────────────────────────────────────────
+      function uploadFileWithTUS(file, index, category) {
+        const customName = document.getElementById("nameFile").value.trim();
+        const totalFiles = fileInput.files.length;
 
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable) {
-            fileProgress[file.name] = event.loaded;
+        // FIX: nombre correcto según cantidad de archivos
+        let filename;
+        if (customName && totalFiles === 1) {
+          // Un solo archivo: usar el nombre custom tal cual
+          const ext  = path.extname(file.name);
+          filename   = ext ? `${customName}${ext}` : customName;
+        } else if (customName && totalFiles > 1) {
+          // Múltiples archivos: agregar sufijo numérico para diferenciarlos
+          const ext  = file.name.includes('.') ? '.' + file.name.split('.').pop() : '';
+          filename   = `${customName}_${index + 1}${ext}`;
+        } else {
+          // Sin nombre custom: usar el nombre original del archivo
+          filename = file.name;
+        }
 
-            const percentFile = Math.floor((event.loaded / file.size) * 100);
-            progressBar.value = percentFile;
+        const upload = new tus.Upload(file, {
+          // FIX: el endpoint siempre es /upload, NO /upload/${category}
+          // la category se envía en los metadata para que el servidor sepa
+          // a qué carpeta mover el archivo tras la subida
+          endpoint:    `/upload`,
+          retryDelays: [0, 1000, 3000, 5000],
+          chunkSize:   255 * 1024 ,  // 1 MB por chunk
+
+          metadata: {
+            filename: filename,
+            filetype: file.type  || 'application/octet-stream',
+            category: category,  // FIX: category ahora viaja en metadata
+          },
+
+          onError: (error) => {
+            console.error(`❌ Error en ${file.name}:`, error);
+
+            const bar = document.getElementById(`individual-progress-${index}`);
+            if (bar) bar.classList.add("error");
+
+            const statusEl = document.getElementById(`status-${index}`);
+            if (statusEl) {
+              statusEl.textContent = "Error al subir";
+              statusEl.style.color = "#dc3545";
+            }
+
+            document.getElementById(`pauseBtn-${index}`).style.display  = "none";
+            document.getElementById(`resumeBtn-${index}`).style.display = "none";
+            document.getElementById(`cancelBtn-${index}`).style.display = "none";
+
+            // Rehabilitar botón si ya no quedan subidas activas
+            if (activeUploads.size === 0) submitButton.disabled = false;
+          },
+
+          onProgress: (bytesUploaded, bytesTotal) => {
+            const percentFile = Math.floor((bytesUploaded / bytesTotal) * 100);
+
+            // FIX: trackear por índice numérico
+            fileProgress[index] = bytesUploaded;
+
+            const bar = document.getElementById(`individual-progress-${index}`);
+            if (bar) bar.style.width = `${percentFile}%`;
+
+            const statusEl = document.getElementById(`status-${index}`);
+            if (statusEl) {
+              statusEl.textContent =
+                `${formatBytes(bytesUploaded)} / ${formatBytes(bytesTotal)} (${percentFile}%)`;
+            }
 
             updateGlobalProgress();
-          }
-        };
+          },
 
-        xhr.onload = () => {
-          if (xhr.status === 200) {
-            progressBar.value = 100;
+          onSuccess: () => {
             filesUploaded++;
+            activeUploads.delete(index);
 
-            socket.emit("uploadComplete", { fileName: file.name });
+            const bar = document.getElementById(`individual-progress-${index}`);
+            if (bar) {
+              bar.style.width = "100%";
+              bar.classList.add("completed");
+            }
 
-            if (
-              filesUploaded ===
-              document.getElementById("fileInput").files.length
-            ) {
+            const statusEl = document.getElementById(`status-${index}`);
+            if (statusEl) {
+              statusEl.textContent = "✓ Completado";
+              statusEl.style.color = "#198754";
+            }
+
+            document.getElementById(`pauseBtn-${index}`).style.display  = "none";
+            document.getElementById(`resumeBtn-${index}`).style.display = "none";
+            document.getElementById(`cancelBtn-${index}`).style.display = "none";
+
+            // FIX: NO emitir socket.emit aquí — el servidor ya lo hace
+            // El evento llegará por socket.on("uploadComplete") más abajo
+
+            // Todos los archivos completados
+            if (filesUploaded === fileInput.files.length) {
               submitButton.disabled = false;
-
-              // Resetear la zona de drop
-              dropZone.classList.remove("has-files");
-              dropZone.querySelector("p").innerHTML = `
-                📁 Arrastra tus archivos aquí<br>
-                <small>o haz clic para seleccionar</small>
-              `;
-              fileListDisplay.innerHTML = "";
-
-              console.log(
-                "Todos los archivos han sido subidos. Botón desbloqueado."
-              );
+              resetDropZone();
             }
           }
-        };
+        });
 
-        const formData = new FormData();
-        formData.append("file", file);
-        xhr.send(formData);
+        // Reanudar subida previa si existe
+        upload.findPreviousUploads().then((previousUploads) => {
+          if (previousUploads.length > 0) {
+            const statusEl = document.getElementById(`status-${index}`);
+            if (statusEl) statusEl.textContent = "Reanudando subida previa...";
+            upload.resumeFromPreviousUpload(previousUploads[0]);
+          }
+          upload.start();
+        });
+
+        activeUploads.set(index, upload);
       }
 
+      // ── Progreso global ────────────────────────────────────────────────────
       function updateGlobalProgress() {
-        const totalUploaded = Object.values(fileProgress).reduce(
-          (acc, size) => acc + size,
-          0
-        );
+        const totalUploaded = Object.values(fileProgress).reduce((acc, n) => acc + n, 0);
+        const percentGlobal = totalSize > 0 ? Math.floor((totalUploaded / totalSize) * 100) : 0;
 
-        const percentGlobal = Math.floor((totalUploaded / totalSize) * 100);
         barProgresv1.style.width = `${percentGlobal}%`;
 
-        if (percentGlobal > 100) {
-          barProgresv1.style.width = "100%";
+        if (percentGlobal >= 100) {
+          barProgresv1.classList.add("completed");
         }
       }
 
+      // ── Controles por archivo ──────────────────────────────────────────────
+      function pauseUpload(index) {
+        const upload = activeUploads.get(index);
+        if (!upload) return;
+
+        upload.abort();
+
+        document.getElementById(`pauseBtn-${index}`).style.display  = "none";
+        document.getElementById(`resumeBtn-${index}`).style.display = "inline-block";
+        document.getElementById(`status-${index}`).textContent      = "⏸ Pausado";
+
+        const bar = document.getElementById(`individual-progress-${index}`);
+        if (bar) bar.classList.add("paused");
+      }
+
+      function resumeUpload(index) {
+        const upload = activeUploads.get(index);
+        if (!upload) return;
+
+        upload.start();
+
+        document.getElementById(`pauseBtn-${index}`).style.display  = "inline-block";
+        document.getElementById(`resumeBtn-${index}`).style.display = "none";
+        document.getElementById(`status-${index}`).textContent      = "Reanudando...";
+
+        const bar = document.getElementById(`individual-progress-${index}`);
+        if (bar) bar.classList.remove("paused");
+      }
+
+      function cancelUpload(index) {
+        const upload = activeUploads.get(index);
+        if (!upload) return;
+
+        upload.abort(true); // true = cancelar permanentemente en el servidor
+        activeUploads.delete(index);
+
+        const uploadDiv = document.getElementById(`upload-${index}`);
+        if (uploadDiv) uploadDiv.remove();
+
+        fileProgress[index] = 0;
+        updateGlobalProgress();
+
+        if (activeUploads.size === 0) submitButton.disabled = false;
+      }
+
+      // ── Reset UI ───────────────────────────────────────────────────────────
+      function resetDropZone() {
+        dropZone.classList.remove("has-files");
+        dropZone.querySelector("p").innerHTML = `
+          📁 Arrastra tus archivos aquí<br>
+          <small>o haz clic para seleccionar</small>
+        `;
+        fileListDisplay.innerHTML = "";
+      }
+
+      // ── Eventos Socket.io ──────────────────────────────────────────────────
       socket.on("uploadComplete", (data) => {
-        console.log(`Archivo ${data.fileName} subido con éxito`);
+        console.log(`✅ Servidor confirmó: ${data.fileName} → ${data.category} (${formatBytes(data.size)})`);
       });
+
+      socket.on("uploadError", (data) => {
+        console.error(`❌ Error del servidor en ${data.fileName}:`, data.error);
+      });
+
+      // ── Helper: extensión de archivo ───────────────────────────────────────
+      // (mini polyfill para usar path.extname en el browser)
+      const path = {
+        extname: (filename) => {
+          const idx = filename.lastIndexOf('.');
+          return idx > 0 ? filename.slice(idx) : '';
+        }
+      };
     </script>
 
     <script
