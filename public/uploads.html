@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
   <head>
+    <meta charset="UTF-8" />
     <title>Subida de archivos</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.2/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tus-js-client@3.1.0/dist/tus.min.js"></script>
@@ -12,73 +13,6 @@
     />
     <link href="./css/styles.css" rel="stylesheet" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      .drop-zone {
-        border: 3px dashed #ccc;
-        border-radius: 10px;
-        padding: 40px;
-        text-align: center;
-        transition: all 0.3s;
-        cursor: pointer;
-        margin-bottom: 20px;
-        background-color: #f8f9fa;
-      }
-
-      .drop-zone.dragover {
-        border-color: #0d6efd;
-        background-color: #e7f1ff;
-        transform: scale(1.02);
-      }
-
-      .drop-zone p {
-        margin: 0;
-        color: #6c757d;
-        font-size: 1.1rem;
-      }
-
-      .drop-zone.has-files {
-        border-color: #198754;
-        background-color: #d1e7dd;
-      }
-
-      .upload-controls {
-        display: flex;
-        gap: 5px;
-        margin-top: 10px;
-      }
-
-      .upload-controls button {
-        font-size: 0.8rem;
-        padding: 2px 8px;
-      }
-
-      .progress-container {
-        width: 100%;
-        height: 20px;
-        background-color: #f0f0f0;
-        border-radius: 10px;
-        overflow: hidden;
-      }
-
-      .progress-bar {
-        height: 100%;
-        background-color: #42b983;
-        transition: width 0.3s ease;
-        width: 0%;
-      }
-
-      .progress-bar.paused {
-        background-color: #ffc107;
-      }
-
-      .progress-bar.error {
-        background-color: #dc3545;
-      }
-
-      .progress-bar.completed {
-        background-color: #198754;
-      }
-    </style>
   </head>
   <body>
     <div id="serverBadge" class="server-badge">
@@ -226,14 +160,19 @@
         if (files.length === 0) return;
 
         const list = document.createElement("div");
-        list.className = "alert alert-info";
-        list.innerHTML = '<strong>Archivos seleccionados:</strong><ul class="mb-0 mt-2">';
+        const title = document.createElement("strong");
+        const items = document.createElement("ul");
 
+        list.className = "alert alert-info";
+        title.textContent = "Archivos seleccionados:";
+        items.className = "mb-0 mt-2";
         for (let i = 0; i < files.length; i++) {
-          list.innerHTML += `<li>${files[i].name} (${formatBytes(files[i].size)})</li>`;
+          const item = document.createElement("li");
+          item.textContent = `${files[i].name} (${formatBytes(files[i].size)})`;
+          items.appendChild(item);
         }
 
-        list.innerHTML += "</ul>";
+        list.append(title, items);
         fileListDisplay.appendChild(list);
       }
 
@@ -290,27 +229,58 @@
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
 
-          const progressBarDiv = document.createElement("div");
-          progressBarDiv.className = "mb-3";
-          progressBarDiv.id        = `upload-${i}`;
-          progressBarDiv.innerHTML = `
-            <div class="d-flex justify-content-between">
-              <p class="mb-1"><strong>${file.name}</strong></p>
-              <small class="text-muted" id="status-${i}">Preparando...</small>
-            </div>
-            <div class="progress-container">
-              <div id="individual-progress-${i}" class="progress-bar"></div>
-            </div>
-            <div class="upload-controls mt-1">
-              <button class="btn btn-sm btn-warning" onclick="pauseUpload(${i})"  id="pauseBtn-${i}">⏸ Pausar</button>
-              <button class="btn btn-sm btn-success" onclick="resumeUpload(${i})" id="resumeBtn-${i}" style="display:none;">▶ Reanudar</button>
-              <button class="btn btn-sm btn-danger"  onclick="cancelUpload(${i})" id="cancelBtn-${i}">✕ Cancelar</button>
-            </div>
-          `;
-          progressContainer.appendChild(progressBarDiv);
+          progressContainer.appendChild(createUploadProgressItem(file, i));
 
           uploadFileWithTUS(file, i, category);
         }
+      }
+
+      function createUploadProgressItem(file, index) {
+        const wrapper = document.createElement("div");
+        const header = document.createElement("div");
+        const fileName = document.createElement("p");
+        const strong = document.createElement("strong");
+        const status = document.createElement("small");
+        const progressContainer = document.createElement("div");
+        const progress = document.createElement("div");
+        const controls = document.createElement("div");
+        const pauseButton = createControlButton("Pausar", "btn-warning", () => pauseUpload(index));
+        const resumeButton = createControlButton("Reanudar", "btn-success", () => resumeUpload(index));
+        const cancelButton = createControlButton("Cancelar", "btn-danger", () => cancelUpload(index));
+
+        wrapper.className = "mb-3";
+        wrapper.id = `upload-${index}`;
+        header.className = "d-flex justify-content-between gap-2 upload-progress-header";
+        fileName.className = "mb-1";
+        strong.textContent = file.name;
+        status.className = "text-muted";
+        status.id = `status-${index}`;
+        status.textContent = "Preparando...";
+        progressContainer.className = "progress-container";
+        progress.className = "progress-bar";
+        progress.id = `individual-progress-${index}`;
+        controls.className = "upload-controls mt-1";
+        pauseButton.id = `pauseBtn-${index}`;
+        resumeButton.id = `resumeBtn-${index}`;
+        resumeButton.style.display = "none";
+        cancelButton.id = `cancelBtn-${index}`;
+
+        fileName.appendChild(strong);
+        header.append(fileName, status);
+        progressContainer.appendChild(progress);
+        controls.append(pauseButton, resumeButton, cancelButton);
+        wrapper.append(header, progressContainer, controls);
+
+        return wrapper;
+      }
+
+      function createControlButton(label, variant, onClick) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `btn btn-sm ${variant}`;
+        button.textContent = label;
+        button.addEventListener("click", onClick);
+        return button;
       }
 
       // ── TUS upload por archivo ─────────────────────────────────────────────
@@ -339,7 +309,7 @@
           // a qué carpeta mover el archivo tras la subida
           endpoint:    `/upload`,
           retryDelays: [0, 1000, 3000, 5000],
-          chunkSize:   255 * 1024 ,  // 1 MB por chunk
+          chunkSize:   255 * 1024,
 
           metadata: {
             filename: filename,
@@ -349,6 +319,7 @@
 
           onError: (error) => {
             console.error(`❌ Error en ${file.name}:`, error);
+            activeUploads.delete(index);
 
             const bar = document.getElementById(`individual-progress-${index}`);
             if (bar) bar.classList.add("error");
@@ -359,9 +330,7 @@
               statusEl.style.color = "#dc3545";
             }
 
-            document.getElementById(`pauseBtn-${index}`).style.display  = "none";
-            document.getElementById(`resumeBtn-${index}`).style.display = "none";
-            document.getElementById(`cancelBtn-${index}`).style.display = "none";
+            hideUploadControls(index);
 
             // Rehabilitar botón si ya no quedan subidas activas
             if (activeUploads.size === 0) submitButton.disabled = false;
@@ -401,9 +370,7 @@
               statusEl.style.color = "#198754";
             }
 
-            document.getElementById(`pauseBtn-${index}`).style.display  = "none";
-            document.getElementById(`resumeBtn-${index}`).style.display = "none";
-            document.getElementById(`cancelBtn-${index}`).style.display = "none";
+            hideUploadControls(index);
 
             // FIX: NO emitir socket.emit aquí — el servidor ya lo hace
             // El evento llegará por socket.on("uploadComplete") más abajo
@@ -484,6 +451,13 @@
         updateGlobalProgress();
 
         if (activeUploads.size === 0) submitButton.disabled = false;
+      }
+
+      function hideUploadControls(index) {
+        ["pauseBtn", "resumeBtn", "cancelBtn"].forEach((prefix) => {
+          const button = document.getElementById(`${prefix}-${index}`);
+          if (button) button.style.display = "none";
+        });
       }
 
       // ── Reset UI ───────────────────────────────────────────────────────────

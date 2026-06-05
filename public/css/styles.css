@@ -37,9 +37,9 @@ border-radius: 10px;
         justify-content: space-between;
       }
 
-      /* .accordion-button:hover { */
-         /* background-color: #a2bee9; */ */
-      /* } */
+      /* .accordion-button:hover {
+         background-color: #a2bee9;
+      } */
 
       .accordion-button::after {
         content: "▼"; /* Símbolo de flecha hacia abajo */
@@ -127,6 +127,54 @@ border-radius: 10px;
 #fileListDisplay li::before {
   content: "📄 ";
   margin-right: 8px;
+}
+
+.upload-progress-header p {
+  overflow-wrap: anywhere;
+}
+
+.upload-progress-header small {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.upload-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.upload-controls button {
+  font-size: 0.8rem;
+  padding: 2px 8px;
+}
+
+.progress-container {
+  width: 100%;
+  height: 20px;
+  background-color: #f0f0f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #42b983;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+.progress-bar.paused {
+  background-color: #ffc107;
+}
+
+.progress-bar.error {
+  background-color: #dc3545;
+}
+
+.progress-bar.completed {
+  background-color: #198754;
 }
 
 
